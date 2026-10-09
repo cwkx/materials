@@ -1,4 +1,4 @@
-# A two-layer CIFAR-10 car GAN, adapted from the MNIST example using 8x8 features and RGB output.
+# A two-layer CIFAR-10 horse GAN, adapted from the MNIST example using 8x8 features and RGB output.
 # Set STUDENT_ID, then run this file or paste it into one notebook cell.
 import ast
 import hashlib
@@ -57,7 +57,7 @@ class Model(nn.Module):
 def build_model():
     return Model()
 
-MAX_PARAMETERS, MAX_STEPS, MAX_BATCH = (500000, 10000, 64)
+MAX_PARAMETERS, MAX_STEPS, MAX_BATCH = (1000000, 10000, 64)
 
 # %% Data, evaluation and submission
 def program_source():
@@ -89,7 +89,7 @@ def save_submission(folder, source, history, metrics, size, seed, split):
     updates = {"generator": CONFIG["steps"], "discriminator": CONFIG["steps"]}
     result = dict(format=6, lab=5, seed=seed, config=dict(CONFIG),
                   parameters=size[0], buffer_elements=size[1], updates=updates,
-                  protocol="comp3801-cifar10-cars-kid1000-v1-" + split, code_sha256=digest(code),
+                  protocol="comp3801-cifar10-horses-kid1000-v1-" + split, code_sha256=digest(code),
                   metrics=metrics, loss=history,
                   samples_sha256={name: digest(folder/"samples"/name) for name in names})
     record = folder / (stem + "-results.json")
@@ -110,7 +110,7 @@ def show_results(history, folder):
     plt.plot(curves[:, 0], curves[:, 1], label="Generator")
     plt.plot(curves[:, 0], curves[:, 2], label="Discriminator")
     plt.legend()
-    plt.xlabel("Update"); plt.ylabel("Loss"); plt.tight_layout(); plt.show()
+    plt.xlabel("GAN iteration"); plt.ylabel("Loss"); plt.tight_layout(); plt.show()
     from PIL import Image
     plt.figure(figsize=(6, 6))
     plt.imshow(Image.open(folder/"samples/batch-01.png"))
@@ -120,7 +120,7 @@ def show_results(history, folder):
 def image_data(split="train"):
     from torchvision.datasets import CIFAR10
     dataset = CIFAR10(root=DATA_DIR, train=split != "test", download=True)
-    index = torch.where(torch.tensor(dataset.targets) == 1)[0]
+    index = torch.where(torch.tensor(dataset.targets) == 7)[0]
     if split != "test":
         order = torch.randperm(len(index), generator=torch.Generator().manual_seed(3802))
         index = index[order[:4000] if split == "train" else order[4000:]]
@@ -213,6 +213,8 @@ def run(out=None, device=None, seed=3801, split="validation", show=True):
         raise ValueError("Training steps or batch size exceeds the practical limit.")
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_num_threads(2)
+    if torch.device(device).type == "cuda":
+        torch.backends.cudnn.benchmark = True
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     folder = Path(out or f"lab-05-{STUDENT_ID}")
     (folder/"samples").mkdir(parents=True, exist_ok=True)
