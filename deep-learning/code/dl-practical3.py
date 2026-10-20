@@ -1,5 +1,7 @@
 # Code for dl-practical3.pdf. Run the # %% sections in order in VS Code or IPython.
 # Follow Practical 1 for environment setup; datasets download on first use.
+# Install the Hugging Face loader once: %pip install datasets (IPython)
+# or: python -m pip install datasets (terminal).
 # %%
 import math
 import torch
@@ -59,18 +61,26 @@ def evaluate(model, images, device='cuda'):
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torchvision.datasets import CIFAR10
+import numpy as np
+from datasets import load_dataset
 import matplotlib.pyplot as plt
 
 # %%
 def data(root='data', split='train'):
     if split not in ('train', 'validation'):
         raise ValueError('choose train or validation')
-    dataset = CIFAR10(root, train=True, download=True)
+    dataset = load_dataset('uoft-cs/cifar10', split='train', cache_dir=root,
+                           revision='0b2714987fa478483af9968de7c934580d0bb9a2')
     order = torch.randperm(50000, generator=torch.Generator().manual_seed(3801))
     index = order[:40000] if split == 'train' else order[40000:]
-    rgb = torch.tensor(dataset.data[index], dtype=torch.float32).permute(0, 3, 1, 2)/255
-    return rgb, torch.tensor(dataset.targets)[index]
+    # This HF revision stores original batches in order 4, 3, 2, 5, 1.
+    # Map original indices to HF rows to preserve our split and examples.
+    batch_positions = torch.tensor([4, 2, 1, 0, 3])
+    hf_index = batch_positions[index // 10000]*10000 + index % 10000
+    selected = dataset.select(hf_index.tolist())
+    pixels = np.stack([np.asarray(image) for image in selected['img']])
+    rgb = torch.from_numpy(pixels).permute(0, 3, 1, 2).float()/255
+    return rgb, torch.tensor(selected['label'], dtype=torch.long)
 
 # %%
 images, labels = data()
